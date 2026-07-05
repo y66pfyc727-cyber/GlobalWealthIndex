@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Ledger — International Valuation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#10151c; --ink-2:#161d26; --ink-3:#1c2430;
+    --paper:#e9e4d8; --paper-dim:#9aa1ab;
+    --brass:#c9a227; --rule:#2a3340; --teal:#4c8577;
+    --amber:#d99a3f; --red:#b5544a;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--ink); color:var(--paper); font-family:'Inter',sans-serif; margin:0; padding:48px 20px 80px; }
+  .wrap { max-width:960px; margin:0 auto; }
+
+  header { text-align:center; border-bottom:1px solid var(--rule); padding-bottom:24px; }
+  h1 { font-family:'Playfair Display',serif; font-size:2.8rem; margin:0 0 8px; letter-spacing:-0.01em; }
+  .subtitle { color:var(--paper-dim); font-size:14px; margin:0; }
+  .status-bar { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:16px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--paper-dim); text-transform:uppercase; margin-top:18px; letter-spacing:0.07em; }
+  .status-item { display:flex; align-items:center; gap:6px; }
+  .indicator-dot { width:6px; height:6px; border-radius:50%; background:#444; transition:0.3s; flex-shrink:0; }
+  .indicator-dot.active { background:var(--teal); box-shadow:0 0 8px var(--teal); }
+  .indicator-dot.stale { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+  .indicator-dot.error { background:var(--red); box-shadow:0 0 8px var(--red); }
+
+  .controls { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:28px 0; }
+  select, input, button { font-family:'IBM Plex Mono',monospace; font-size:13px; }
+  select { background:var(--ink-2); color:var(--paper); border:1px solid var(--rule); padding:11px 16px; cursor:pointer; border-radius:4px; }
+
+  .profile-card { background:var(--ink-2); border:1px solid var(--rule); border-radius:6px; padding:28px; display:flex; gap:24px; align-items:flex-start; }
+  .avatar-wrap { flex-shrink:0; width:104px; height:104px; border-radius:8px; overflow:hidden; background:var(--ink-3); border:1px solid var(--rule); display:flex; align-items:center; justify-content:center; }
+  .avatar-wrap img { width:100%; height:100%; object-fit:cover; }
+  .avatar-wrap .initials { font-family:'Playfair Display',serif; font-size:32px; color:var(--paper-dim); }
+  .profile-main { flex:1; min-width:0; }
+  #cName { font-family:'Playfair Display',serif; font-size:24px; line-height:1.2; }
+  #cDesc { font-size:11px; color:var(--paper-dim); text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
+  .p-worth { font-family:'IBM Plex Mono',monospace; font-size:2.2rem; font-weight:600; margin-top:12px; color:var(--brass); }
+  .bio-text { font-size:13px; line-height:1.65; color:var(--paper-dim); margin-top:12px; }
+  .bio-text a { color:var(--teal); text-decoration:none; }
+  .bio-text a:hover { text-decoration:underline; }
+  .status-pill-row { margin-top:14px; }
+  .source-pill { font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; padding:6px 11px; border:1px solid var(--rule); border-radius:20px; color:var(--paper-dim); display:inline-flex; align-items:center; gap:6px; }
+  .source-pill.live { border-color:var(--teal); color:var(--teal); }
+  .source-pill.estimate { border-color:var(--amber); color:var(--amber); }
+  .verify-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .verify-btn { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--paper); text-decoration:none; border:1px solid var(--rule); background:var(--ink-3); padding:7px 12px; border-radius:5px; transition:0.15s; display:inline-flex; align-items:center; gap:5px; }
+  .verify-btn:hover { border-color:var(--brass); color:var(--brass); background:rgba(201,162,39,0.08); }
+  .verify-btn .arrow { opacity:0.6; }
+
+  .odo-box { margin-top:28px; padding:20px; border:1px solid var(--brass); border-radius:6px; text-align:center; background:rgba(201,162,39,0.05); }
+  .odo-label { font-size:11px; text-transform:uppercase; color:var(--paper-dim); letter-spacing:0.1em; }
+  .odo-num { font-family:'IBM Plex Mono',monospace; font-size:1.9rem; color:var(--brass); margin-top:4px; }
+
+  .section-title { font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--brass); margin:44px 0 4px; border-top:1px solid var(--rule); padding-top:20px; }
+  .section-sub { font-size:12px; color:var(--paper-dim); margin:0 0 8px; line-height:1.6; }
+  .ledger { width:100%; border-collapse:collapse; font-family:'IBM Plex Mono',monospace; margin-top:12px; margin-bottom:8px; font-size:13px; }
+  .ledger tr { border-bottom:1px dashed var(--rule); }
+  .ledger td { padding:12px 4px; }
+  .ledger td:last-child { text-align:right; font-weight:600; color:var(--brass); }
+  .purchasing td:last-child { color:var(--teal); }
+
+  .factcheck-table { width:100%; border-collapse:collapse; font-family:'IBM Plex Mono',monospace; font-size:11px; margin-top:12px; }
+  .factcheck-table th { text-align:left; color:var(--paper-dim); font-weight:500; text-transform:uppercase; letter-spacing:0.05em; padding:8px 4px; border-bottom:1px solid var(--rule); font-size:10px; }
+  .factcheck-table td { padding:10px 4px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  .fc-status { display:inline-flex; align-items:center; gap:6px; }
+
+  /* Signature stat cards */
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; margin-top:16px; }
+  .stat-card { background:var(--ink-2); border:1px solid var(--rule); border-radius:6px; padding:18px; text-align:center; }
+  .stat-num { font-family:'IBM Plex Mono',monospace; font-size:1.6rem; color:var(--brass); font-weight:600; }
+  .stat-label { font-size:11px; color:var(--paper-dim); margin-top:4px; text-transform:uppercase; letter-spacing:0.04em; }
+  .stat-empty { text-align:center; color:var(--paper-dim); font-size:13px; padding:24px; border:1px dashed var(--rule); border-radius:6px; margin-top:16px; }
+
+  /* Category buttons */
+  .cat-chip-row { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 8px; }
+  .cat-chip { font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; padding:9px 14px; border-radius:20px; border:1px solid var(--rule); background:var(--ink-2); color:var(--paper); cursor:pointer; transition:0.15s; }
+  .cat-chip:hover { border-color:var(--brass); color:var(--brass); }
+  .cat-chip.on { border-color:var(--brass); background:rgba(201,162,39,0.12); color:var(--brass); }
+  .cat-count { color:var(--paper-dim); font-size:9px; }
+  .cat-chip.on .cat-count { color:var(--brass); }
+
+  details.category { background:var(--ink-2); border:1px solid var(--rule); border-radius:6px; margin-top:10px; overflow:hidden; }
+  details.category summary { cursor:pointer; padding:14px 18px; font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; color:var(--paper); list-style:none; display:flex; justify-content:space-between; align-items:center; }
+  details.category summary::-webkit-details-marker { display:none; }
+  details.category summary::before { content:"▸ "; color:var(--brass); }
+  details.category[open] summary::before { content:"▾ "; }
+  details.category .cat-body { padding:0 18px 16px; }
+  .cat-note { font-size:11px; color:var(--paper-dim); margin:0 0 10px; line-height:1.6; }
+  table.item-table { width:100%; border-collapse:collapse; font-family:'IBM Plex Mono',monospace; font-size:12.5px; }
+  table.item-table tr { border-bottom:1px dashed var(--rule); }
+  table.item-table td { padding:9px 4px; }
+  table.item-table td:nth-child(2) { text-align:right; color:var(--paper-dim); }
+  table.item-table td:nth-child(3) { text-align:right; font-weight:600; color:var(--teal); white-space:nowrap; }
+
+  details.advanced { margin-top:44px; border-top:1px solid var(--rule); padding-top:20px; }
+  details.advanced summary { cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--paper-dim); list-style:none; }
+  details.advanced summary::-webkit-details-marker { display:none; }
+  details.advanced summary::before { content:"▸ "; color:var(--brass); }
+  details.advanced[open] summary::before { content:"▾ "; }
+  .adv-body { margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .adv-body input { width:100%; max-width:340px; background:var(--ink-2); color:var(--paper); border:1px solid var(--rule); padding:11px 14px; border-radius:4px; text-align:center; }
+  .adv-body input::placeholder { color:var(--paper-dim); }
+  .adv-hint { font-size:11px; color:var(--paper-dim); text-align:center; max-width:440px; line-height:1.6; }
+  .adv-hint a { color:var(--teal); }
+
+  footer.note { text-align:center; font-size:11px; color:var(--paper-dim); margin-top:28px; line-height:1.7; }
+
+  @media (max-width:640px) {
+    .profile-card { flex-direction:column; align-items:center; text-align:center; }
+    .status-pill-row, .verify-links, .cat-chip-row { justify-content:center; }
+  }
+
+  @media print {
+    body { background:#fff !important; color:#000 !important; padding:20px !important; }
+    .controls, .status-bar, details.advanced, .odo-box, .verify-links, .cat-chip-row { display:none !important; }
+    .wrap { max-width:100% !important; }
+    .profile-card { background:#fff !important; border:1px solid #000 !important; color:#000 !important; }
+    .p-worth, #cDesc, .bio-text { color:#000 !important; }
+    .ledger td { border-bottom:1px dashed #000 !important; color:#000 !important; }
+    .ledger td:last-child { color:#000 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>How Rich Is Rich?</h1>
+    <p class="subtitle">Net worth, time-value breakdown, and what it could actually buy — cross-checked against live and dated sources.</p>
+    <div class="status-bar">
+      <div class="status-item"><div class="indicator-dot" id="priceIndicator"></div><span id="priceLabel">Price feed — idle</span></div>
+      <div class="status-item"><div class="indicator-dot" id="fxIndicator"></div><span id="fxLabel">FX rates — idle</span></div>
+      <div class="status-item"><div class="indicator-dot" id="wikiIndicator"></div><span id="wikiLabel">Biography — idle</span></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <select id="entitySelector">
+      <optgroup label="Individuals (static baseline)">
+        <option value="musk">Elon Musk</option>
+        <option value="bezos">Jeff Bezos</option>
+        <option value="page">Larry Page</option>
+        <option value="brin">Sergey Brin</option>
+        <option value="dell">Michael Dell</option>
+        <option value="zuckerberg">Mark Zuckerberg</option>
+        <option value="ellison">Larry Ellison</option>
+        <option value="huang">Jensen Huang</option>
+        <option value="arnault">Bernard Arnault</option>
+        <option value="buffett">Warren Buffett</option>
+        <option value="ortega">Amancio Ortega</option>
+        <option value="ballmer">Steve Ballmer</option>
+        <option value="slim">Carlos Slim</option>
+        <option value="gates">Bill Gates</option>
+        <option value="waltona">Alice Walton</option>
+        <option value="robwalton">Rob Walton</option>
+        <option value="jimwalton">Jim Walton</option>
+      </optgroup>
+      <optgroup label="Companies (live-capable)">
+        <option value="AAPL">Apple Inc.</option>
+        <option value="NVDA">NVIDIA Corp.</option>
+      </optgroup>
+    </select>
+    <select id="currencySelector">
+      <option value="USD">USD ($)</option>
+      <option value="EUR">EUR (€)</option>
+      <option value="GBP">GBP (£)</option>
+      <option value="JPY">JPY (¥)</option>
+    </select>
+  </div>
+
+  <div class="profile-card">
+    <div class="avatar-wrap" id="avatarWrap"><span class="initials" id="avatarInitials">—</span></div>
+    <div class="profile-main">
+      <div id="cName">—</div>
+      <div id="cDesc"></div>
+      <div class="p-worth" id="cWorth">—</div>
+      <div class="bio-text" id="cBio">Loading biography…</div>
+      <div class="status-pill-row" id="sourceRow"></div>
+      <div class="verify-links" id="verifyLinks"></div>
+    </div>
+  </div>
+
+  <div class="odo-box">
+    <div class="odo-label">Accumulated Value Since Page Load</div>
+    <div class="odo-num" id="odoNum">$0.00</div>
+  </div>
+
+  <div class="section-title">Time-Value Breakdown</div>
+  <p class="section-sub">Total value treated as if accumulated continuously over one year, then broken into every common time unit.</p>
+  <table class="ledger" id="mTable"></table>
+
+  <div class="section-title">Purchasing Power Per Day</div>
+  <table class="ledger purchasing" id="pTable"></table>
+
+  <div class="section-title">Signature Comparisons</div>
+  <p class="section-sub">Only shown once the selected entity can actually afford at least one.</p>
+  <div class="stat-grid" id="statGrid"></div>
+  <div class="stat-empty" id="statEmpty" style="display:none;">Not enough to afford any of the signature items below at current valuation.</div>
+
+  <div class="section-title">Shopping List — What They Could Buy</div>
+  <p class="section-sub">Pick a category. Prices are illustrative public estimates (not live listings) — items the entity can't afford at least one of are hidden automatically. Buying a public company also normally requires a 20–40% control premium over market cap, not shown here.</p>
+  <div class="cat-chip-row" id="catChipRow"></div>
+  <div id="catBody"></div>
+
+  <div class="section-title">Fact-Check Ledger</div>
+  <table class="factcheck-table" id="fcTable">
+    <thead><tr><th>Data point</th><th>Value used</th><th>Status</th><th>Source</th><th>Checked</th></tr></thead>
+    <tbody id="fcBody"></tbody>
+  </table>
+
+  <details class="advanced">
+    <summary>Advanced: connect a live stock price feed</summary>
+    <div class="adv-body">
+      <input id="finnhubKey" type="text" placeholder="Paste a free Finnhub API key">
+      <div class="adv-hint">
+        Company market caps use a dated fallback figure unless you provide a key. Stock quote APIs require one to prevent abuse —
+        get a free key at <a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io/register</a>.
+        It's sent directly from your browser to Finnhub only, never stored or shared elsewhere. Individuals' net worth has
+        no free live equivalent — see the Verify buttons on their profile instead.
+      </div>
+    </div>
+  </details>
+
+  <footer class="note">
+    Exchange rates refresh live from Frankfurter (ECB reference rates). Biography &amp; photos refresh live from Wikipedia.
+    Individual net-worth figures and shopping-list prices are dated, hand-maintained estimates, not live feeds — use the Verify buttons to check current figures yourself.
+  </footer>
+</div>
+
+<script>
+const Registry = {
+  musk: {
+    type:"person", name:"Elon Musk", wiki:"Elon Musk",
+    value: 997100000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/elon-musk/" },
+      { label:"Forbes Real-Time list", url:"https://www.forbes.com/real-time-billionaires/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Elon_Musk" },
+      { label:"Wealth history (Wikipedia)", url:"https://en.wikipedia.org/wiki/Wealth_of_Elon_Musk" }
+    ]
+  },
+  bezos: {
+    type:"person", name:"Jeff Bezos", wiki:"Jeff Bezos",
+    value: 252600000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/jeff-bezos/" },
+      { label:"Forbes Real-Time list", url:"https://www.forbes.com/real-time-billionaires/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Jeff_Bezos" }
+    ]
+  },
+  page: {
+    type:"person", name:"Larry Page", wiki:"Larry Page",
+    value: 293400000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/larry-page/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Larry_Page" }
+    ]
+  },
+  brin: {
+    type:"person", name:"Sergey Brin", wiki:"Sergey Brin",
+    value: 270600000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/sergey-brin/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Sergey_Brin" }
+    ]
+  },
+  dell: {
+    type:"person", name:"Michael Dell", wiki:"Michael Dell",
+    value: 220700000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires — surged on AI server demand for Dell Technologies",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/michael-dell/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Michael_Dell" }
+    ]
+  },
+  zuckerberg: {
+    type:"person", name:"Mark Zuckerberg", wiki:"Mark Zuckerberg",
+    value: 200200000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/mark-zuckerberg/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Mark_Zuckerberg" }
+    ]
+  },
+  ellison: {
+    type:"person", name:"Larry Ellison", wiki:"Larry Ellison",
+    value: 184000000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/larry-ellison/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Larry_Ellison" }
+    ]
+  },
+  huang: {
+    type:"person", name:"Jensen Huang", wiki:"Jensen Huang",
+    value: 168600000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/jensen-huang/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Jensen_Huang" }
+    ]
+  },
+  arnault: {
+    type:"person", name:"Bernard Arnault", wiki:"Bernard Arnault",
+    value: 151500000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/bernard-arnault/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Bernard_Arnault" }
+    ]
+  },
+  buffett: {
+    type:"person", name:"Warren Buffett", wiki:"Warren Buffett",
+    value: 150300000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/warren-buffett/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Warren_Buffett" }
+    ]
+  },
+  ortega: {
+    type:"person", name:"Amancio Ortega", wiki:"Amancio Ortega",
+    value: 144300000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/amancio-ortega/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Amancio_Ortega" }
+    ]
+  },
+  ballmer: {
+    type:"person", name:"Steve Ballmer", wiki:"Steve Ballmer",
+    value: 125800000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/steve-ballmer/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Steve_Ballmer" }
+    ]
+  },
+  slim: {
+    type:"person", name:"Carlos Slim", wiki:"Carlos Slim",
+    value: 123000000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/carlos-slim-helu/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Carlos_Slim" }
+    ]
+  },
+  gates: {
+    type:"person", name:"Bill Gates", wiki:"Bill Gates",
+    value: 106000000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/bill-gates/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Bill_Gates" }
+    ]
+  },
+  waltona: {
+    type:"person", name:"Alice Walton", wiki:"Alice Walton",
+    value: 119700000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires — richest woman in the world",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/alice-walton/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Alice_Walton" }
+    ]
+  },
+  robwalton: {
+    type:"person", name:"Rob Walton", wiki:"Rob Walton",
+    value: 131300000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/rob-walton/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Rob_Walton" }
+    ]
+  },
+  jimwalton: {
+    type:"person", name:"Jim Walton", wiki:"Jim Walton",
+    value: 128600000000, valueAsOf: "2026-07-04",
+    source: "Forbes Real-Time Billionaires",
+    verify: [
+      { label:"Forbes profile", url:"https://www.forbes.com/profile/jim-walton/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Jim_Walton" }
+    ]
+  },
+  AAPL: {
+    type:"company", name:"Apple Inc.", wiki:"Apple Inc.", ticker:"AAPL", domain:"apple.com",
+    shares: 14690000000, isLive:true, fallback: 4400000000000, fallbackAsOf:"2026-07-03",
+    verify: [
+      { label:"Live quote (Google)", url:"https://www.google.com/finance/quote/AAPL:NASDAQ" },
+      { label:"Market cap (companiesmarketcap)", url:"https://companiesmarketcap.com/apple/marketcap/" },
+      { label:"Stats (StockAnalysis)", url:"https://stockanalysis.com/stocks/aapl/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Apple_Inc." }
+    ]
+  },
+  NVDA: {
+    type:"company", name:"NVIDIA Corp.", wiki:"Nvidia", ticker:"NVDA", domain:"nvidia.com",
+    shares: 24220000000, isLive:true, fallback: 4700000000000, fallbackAsOf:"2026-07-03",
+    verify: [
+      { label:"Live quote (Google)", url:"https://www.google.com/finance/quote/NVDA:NASDAQ" },
+      { label:"Market cap (companiesmarketcap)", url:"https://companiesmarketcap.com/nvidia/marketcap/" },
+      { label:"Stats (StockAnalysis)", url:"https://stockanalysis.com/stocks/nvda/" },
+      { label:"Wikipedia", url:"https://en.wikipedia.org/wiki/Nvidia" }
+    ]
+  }
+};
+
+const Benchmarks = {
+  yachtMaint: { label: "Mega-Yacht Annual Maintenance ($5M USD)", costUsd: 5000000 },
+  airliner: { label: "Commercial Twin-Engine Airliners ($90M USD)", costUsd: 90000000 },
+  gdpIceland: { label: "Iceland Annual GDP Equivalent ($30B USD)", costUsd: 30000000000 }
+};
+
+// All prices in USD. Illustrative public estimates, hand-maintained — see the disclaimer above the shopping list.
+const ShoppingCategories = {
+  companies: {
+    label: "Largest Public Companies", note: "By market capitalization — the 15 largest public companies globally, not an exhaustive list of every public company on Earth. Actually acquiring one also requires a control premium on top of market cap.",
+    items: [
+      { name:"SpaceX (SPCX, post-IPO)", price:2200000000000 },
+      { name:"NVIDIA Corp.", price:4700000000000 },
+      { name:"Apple Inc.", price:4400000000000 },
+      { name:"Microsoft Corp.", price:3800000000000 },
+      { name:"Amazon.com Inc.", price:2400000000000 },
+      { name:"Alphabet Inc. (Google)", price:2300000000000 },
+      { name:"Saudi Aramco", price:1800000000000 },
+      { name:"Meta Platforms Inc.", price:1700000000000 },
+      { name:"Broadcom Inc.", price:1300000000000 },
+      { name:"Tesla Inc.", price:1100000000000 },
+      { name:"Berkshire Hathaway", price:1000000000000 },
+      { name:"Eli Lilly & Co.", price:900000000000 },
+      { name:"Walmart Inc.", price:800000000000 },
+      { name:"JPMorgan Chase & Co.", price:750000000000 },
+      { name:"Visa Inc.", price:650000000000 },
+      { name:"TSMC", price:1200000000000 }
+    ]
+  },
+  privateco: {
+    label: "Major Private Companies", note: "Latest known private-market valuations, not stock-market prices — these companies aren't publicly tradable.",
+    items: [
+      { name:"ByteDance (TikTok)", price:220000000000 },
+      { name:"OpenAI", price:300000000000 }
+    ]
+  },
+  realestate: {
+    label: "Landmark Buildings", note: "None of these are actually for sale — figures are analyst valuation estimates.",
+    items: [
+      { name:"Buckingham Palace (estimated valuation)", price:4900000000 },
+      { name:"Marina Bay Sands (Singapore)", price:5500000000 },
+      { name:"One World Trade Center (NYC)", price:3900000000 },
+      { name:"Shanghai Tower", price:2400000000 },
+      { name:"Empire State Building (NYC)", price:2300000000 },
+      { name:"Burj Khalifa (Dubai)", price:1500000000 },
+      { name:"Willis Tower (Chicago)", price:1300000000 },
+      { name:"Chrysler Building (NYC)", price:150000000 }
+    ]
+  },
+  sportsLeagues: {
+    label: "Entire Sports Leagues", note: "Leagues aren't sold as single units — totals are the sum of publicly reported franchise valuations.",
+    items: [
+      { name:"NFL (entire league, 32 teams)", price:210000000000 },
+      { name:"NBA (entire league, 30 teams)", price:120000000000 },
+      { name:"MLB (entire league, 30 teams)", price:70000000000 },
+      { name:"NHL (entire league, 32 teams)", price:40000000000 },
+      { name:"MLS (entire league, 29 teams)", price:18000000000 },
+      { name:"Formula 1 (organization + teams)", price:17000000000 },
+      { name:"UFC / TKO Group", price:12000000000 }
+    ]
+  },
+  sportsTeams: {
+    label: "Individual Sports Teams", note: "Single-team valuations, most valuable franchise per league shown.",
+    items: [
+      { name:"Dallas Cowboys (NFL)", price:10000000000 },
+      { name:"Golden State Warriors (NBA)", price:8000000000 },
+      { name:"New York Yankees (MLB)", price:7000000000 },
+      { name:"Scuderia Ferrari (F1)", price:3900000000 },
+      { name:"New York Rangers (NHL)", price:2600000000 },
+      { name:"LAFC (MLS)", price:1200000000 }
+    ]
+  },
+  navy: {
+    label: "Naval Vessels", note: "U.S. Navy new-build program costs.",
+    items: [
+      { name:"Gerald R. Ford-class Aircraft Carrier", price:13300000000 },
+      { name:"Virginia-class Submarine", price:3400000000 },
+      { name:"Arleigh Burke-class Destroyer", price:2200000000 },
+      { name:"Ticonderoga-class Cruiser", price:1800000000 }
+    ]
+  },
+  aircraft: {
+    label: "Military Aircraft", note: "Unit / flyaway costs, U.S. programs.",
+    items: [
+      { name:"B-21 Raider (stealth bomber, est. unit cost)", price:700000000 },
+      { name:"F-22 Raptor (program cost)", price:334000000 },
+      { name:"F-15EX Eagle II", price:94000000 },
+      { name:"F-35A Lightning II", price:80000000 },
+      { name:"F/A-18E/F Super Hornet", price:67000000 },
+      { name:"F-16V Fighting Falcon", price:63000000 },
+      { name:"Gulfstream G700 (private jet)", price:78000000 },
+      { name:"Airbus H175 (luxury helicopter)", price:15000000 }
+    ]
+  },
+  militaryGround: {
+    label: "Ground Military Vehicles", note: "Main battle tank unit costs.",
+    items: [
+      { name:"M1A2 SEPv3 Abrams", price:10000000 },
+      { name:"Leopard 2A7+", price:8500000 },
+      { name:"Challenger 3", price:7000000 }
+    ]
+  },
+  cars: {
+    label: "Exotic Cars", note: "Manufacturer or last-known sale price, single unit.",
+    items: [
+      { name:"Rolls-Royce Boat Tail", price:28000000 },
+      { name:"Bugatti La Voiture Noire", price:18700000 },
+      { name:"Pagani Zonda HP Barchetta", price:17500000 },
+      { name:"Bugatti Centodieci", price:9000000 },
+      { name:"Mercedes-Maybach Exelero", price:8000000 },
+      { name:"Koenigsegg CCXR Trevita", price:4800000 },
+      { name:"Pagani Huayra", price:3500000 },
+      { name:"Bugatti Chiron", price:3300000 },
+      { name:"Koenigsegg Jesko", price:3000000 },
+      { name:"McLaren Speedtail", price:2300000 },
+      { name:"Ferrari LaFerrari", price:1500000 }
+    ]
+  },
+  islands: {
+    label: "Private Islands", note: "Last publicly reported sale or asking price.",
+    items: [
+      { name:"Lanai, Hawaii (Larry Ellison, 2012)", price:300000000 },
+      { name:"Necker Island (Richard Branson)", price:100000000 },
+      { name:"Pumpkin Key, Florida", price:95000000 },
+      { name:"Little Pipe Cay, Bahamas", price:85000000 }
+    ]
+  },
+  art: {
+    label: "Fine Art (Sold Works)", note: "Public auction or private-sale records — the world's most culturally significant works (Mona Lisa, Guernica, etc.) are national property and not for sale at any price.",
+    items: [
+      { name:"Salvator Mundi — Leonardo da Vinci", price:450300000 },
+      { name:"Interchange — Willem de Kooning", price:300000000 },
+      { name:"The Card Players — Paul Cézanne", price:250000000 },
+      { name:"Nafea Faa Ipoipo — Paul Gauguin", price:210000000 },
+      { name:"Number 17A — Jackson Pollock", price:200000000 },
+      { name:"No. 6 (Violet, Green and Red) — Mark Rothko", price:186000000 },
+      { name:"Les Femmes d'Alger (O) — Pablo Picasso", price:179400000 },
+      { name:"Nu Couché — Amedeo Modigliani", price:170400000 },
+      { name:"Three Studies of Lucian Freud — Francis Bacon", price:142400000 }
+    ]
+  },
+  parks: {
+    label: "Theme Parks", note: "Not for sale — analyst valuation estimates from revenue multiples and land value.",
+    items: [
+      { name:"Disney World, Florida", price:75000000000 },
+      { name:"Disneyland, California", price:27000000000 },
+      { name:"Universal Orlando Resort", price:20000000000 },
+      { name:"Six Flags (whole company)", price:3000000000 }
+    ]
+  },
+  megaprojects: {
+    label: "Megaprojects & Infrastructure", note: "Real, well-documented build costs for landmark infrastructure — not for sale, shown for scale.",
+    items: [
+      { name:"International Space Station (build cost)", price:150000000000 },
+      { name:"Three Gorges Dam (China)", price:32000000000 },
+      { name:"Channel Tunnel (UK/France)", price:22400000000 },
+      { name:"Al Maktoum International Airport (UAE)", price:33000000000 },
+      { name:"Hoover Dam (inflation-adjusted)", price:890000000 }
+    ]
+  },
+  collectibles: {
+    label: "Auction-Record Collectibles", note: "Genuine record auction/private sale prices for one-of-a-kind items — verify each via the linked auction house or press coverage before treating as current.",
+    items: [
+      { name:"1962 Ferrari 250 GTO (auction record)", price:70000000 },
+      { name:"1955 Mercedes-Benz 300 SLR Uhlenhaut Coupé", price:142000000 },
+      { name:"Pink Star Diamond", price:71200000 },
+      { name:"Gutenberg Bible (complete copy, estimated)", price:35000000 },
+      { name:"Mickey Mantle 1952 Topps card", price:12600000 },
+      { name:"Honus Wagner T206 card", price:7250000 }
+    ]
+  },
+  countries: {
+    label: "Countries (Hypothetical)", note: "Countries cannot legally be bought or sold. Figures are rough GDP-plus-land-value equivalents for scale only.",
+    items: [
+      { name:"Germany", price:4900000000000 },
+      { name:"Japan", price:4200000000000 },
+      { name:"United Kingdom", price:3600000000000 },
+      { name:"France", price:3200000000000 },
+      { name:"Spain", price:1600000000000 },
+      { name:"Australia", price:1800000000000 },
+      { name:"Ireland", price:900000000000 },
+      { name:"Portugal", price:600000000000 },
+      { name:"New Zealand", price:400000000000 },
+      { name:"Croatia", price:200000000000 },
+      { name:"Luxembourg", price:150000000000 },
+      { name:"Iceland", price:60000000000 },
+      { name:"Bhutan", price:20000000000 },
+      { name:"Dominica", price:8000000000 },
+      { name:"Kiribati", price:3000000000 },
+      { name:"Nauru", price:2000000000 },
+      { name:"Tuvalu", price:1000000000 }
+    ]
+  }
+};
+
+// Featured comparisons pulled out for the "Signature Comparisons" stat grid.
+const SignatureItems = [
+  { cat:"realestate", name:"Burj Khalifa (Dubai)", label:"Burj Khalifas" },
+  { cat:"realestate", name:"Empire State Building (NYC)", label:"Empire State Buildings" },
+  { cat:"aircraft", name:"F-35A Lightning II", label:"F-35A Fighter Jets" },
+  { cat:"sportsLeagues", name:"NFL (entire league, 32 teams)", label:"Entire NFLs" },
+  { cat:"navy", name:"Gerald R. Ford-class Aircraft Carrier", label:"Aircraft Carriers" },
+  { cat:"cars", name:"Bugatti Chiron", label:"Bugatti Chirons" }
+];
+
+let rates = { USD: 1, EUR: 0.92, GBP: 0.78, JPY: 156 };
+let odoStart = Date.now();
+let cachedValUsd = 0;
+let fcRows = {};
+
+function formatBig(value, sym, decimals) {
+  if (decimals === undefined) decimals = 2;
+  const abs = Math.abs(value);
+  let scaled = value, suffix = "";
+  if (abs >= 1e12) { scaled = value / 1e12; suffix = " Trillion"; }
+  else if (abs >= 1e9) { scaled = value / 1e9; suffix = " Billion"; }
+  else if (abs >= 1e6) { scaled = value / 1e6; suffix = " Million"; }
+  else if (abs >= 1e3) { scaled = value / 1e3; suffix = " Thousand"; }
+  return `${sym}${scaled.toLocaleString(undefined, {minimumFractionDigits:decimals, maximumFractionDigits:decimals})}${suffix}`;
+}
+
+function setIndicator(id, labelId, state, text) {
+  const dot = document.getElementById(id);
+  dot.className = "indicator-dot" + (state ? " " + state : "");
+  document.getElementById(labelId).innerText = text;
+}
+
+function fcUpdate(key, label, value, status, source, checked) {
+  fcRows[key] = { label, value, status, source, checked };
+  renderFactCheck();
+}
+
+function renderFactCheck() {
+  const body = document.getElementById("fcBody");
+  body.innerHTML = Object.values(fcRows).map(r => {
+    const color = r.status === "Live" ? "var(--teal)" : (r.status === "Error" ? "var(--red)" : "var(--amber)");
+    return `<tr>
+      <td>${r.label}</td>
+      <td>${r.value}</td>
+      <td><span class="fc-status" style="color:${color}"><span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block;"></span>${r.status}</span></td>
+      <td>${r.source}</td>
+      <td>${r.checked}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function fetchFxRates() {
+  setIndicator("fxIndicator", "fxLabel", null, "FX rates — fetching…");
+  try {
+    const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY");
+    if (!res.ok) throw new Error("bad response");
+    const data = await res.json();
+    rates = { USD: 1, EUR: data.rates.EUR, GBP: data.rates.GBP, JPY: data.rates.JPY };
+    setIndicator("fxIndicator", "fxLabel", "active", `FX rates — live (ECB, ${data.date})`);
+    fcUpdate("fx", "USD → EUR/GBP/JPY rate", `EUR ${rates.EUR}, GBP ${rates.GBP}, JPY ${rates.JPY}`, "Live", "Frankfurter (ECB reference rates)", new Date().toLocaleTimeString());
+  } catch (e) {
+    setIndicator("fxIndicator", "fxLabel", "error", "FX rates — using fallback");
+    fcUpdate("fx", "USD → EUR/GBP/JPY rate", `EUR ${rates.EUR}, GBP ${rates.GBP}, JPY ${rates.JPY}`, "Fallback", "Hardcoded fallback rates", new Date().toLocaleTimeString());
+  }
+  renderDisplayInterface();
+}
+
+async function fetchBio(entity) {
+  setIndicator("wikiIndicator", "wikiLabel", null, "Biography — fetching…");
+  document.getElementById("cBio").innerText = "Loading biography…";
+  try {
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(entity.wiki)}`);
+    if (!res.ok) throw new Error("not found");
+    const data = await res.json();
+    const extract = data.extract || "No summary available.";
+    const pageUrl = data.content_urls?.desktop?.page || ("https://en.wikipedia.org/wiki/" + encodeURIComponent(entity.wiki.replace(/ /g, "_")));
+    document.getElementById("cBio").innerHTML = `${extract} <a href="${pageUrl}" target="_blank" rel="noopener">Read more on Wikipedia →</a>`;
+    document.getElementById("cDesc").innerText = data.description ? data.description.toUpperCase() : (entity.type === "company" ? "COMPANY" : "");
+
+    const avatarWrap = document.getElementById("avatarWrap");
+    if (data.thumbnail && data.thumbnail.source) {
+      avatarWrap.innerHTML = `<img src="${data.thumbnail.source}" alt="${entity.name}">`;
+    } else if (entity.type === "company" && entity.domain) {
+      avatarWrap.innerHTML = `<img src="https://logo.clearbit.com/${entity.domain}" alt="${entity.name} logo" onerror="this.parentElement.innerHTML='<span class=&quot;initials&quot;>${entity.name[0]}</span>'">`;
+    } else {
+      avatarWrap.innerHTML = `<span class="initials">${entity.name[0]}</span>`;
+    }
+
+    setIndicator("wikiIndicator", "wikiLabel", "active", "Biography — live (Wikipedia)");
+    fcUpdate("wiki", "Biography & photo", data.description || "—", "Live", "Wikipedia REST API", new Date().toLocaleTimeString());
+  } catch (e) {
+    document.getElementById("cBio").innerText = "Could not load a biography for this entity right now.";
+    setIndicator("wikiIndicator", "wikiLabel", "error", "Biography — unavailable");
+    fcUpdate("wiki", "Biography & photo", "—", "Error", "Wikipedia REST API", new Date().toLocaleTimeString());
+    if (entity.type === "company" && entity.domain) {
+      document.getElementById("avatarWrap").innerHTML = `<img src="https://logo.clearbit.com/${entity.domain}" alt="${entity.name} logo" onerror="this.parentElement.innerHTML='<span class=&quot;initials&quot;>${entity.name[0]}</span>'">`;
+    }
+  }
+}
+
+async function fetchValuation(entity) {
+  setIndicator("priceIndicator", "priceLabel", null, "Price feed — checking…");
+  const key = document.getElementById("finnhubKey").value.trim();
+
+  if (entity.type === "person") {
+    cachedValUsd = entity.value;
+    setIndicator("priceIndicator", "priceLabel", "stale", "Price feed — static baseline (no free live source exists)");
+    fcUpdate("val", `${entity.name} net worth`, formatBig(entity.value, "$"), "Estimate",
+      `${entity.source}, as of ${entity.valueAsOf}`, new Date().toLocaleTimeString());
+    renderProfileMeta(entity, "estimate", `Static baseline (${entity.valueAsOf}) — no free real-time billionaire API exists`);
+    renderDisplayInterface();
+    return;
+  }
+
+  if (key) {
+    try {
+      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${entity.ticker}&token=${key}`);
+      if (!res.ok) throw new Error("bad response");
+      const data = await res.json();
+      if (data.c && data.c !== 0) {
+        cachedValUsd = data.c * entity.shares;
+        setIndicator("priceIndicator", "priceLabel", "active", `Price feed — live (Finnhub: $${data.c}/share)`);
+        fcUpdate("val", `${entity.name} market cap`, formatBig(cachedValUsd, "$"), "Live",
+          `Finnhub quote ($${data.c}/share × ${entity.shares.toLocaleString()} shares)`, new Date().toLocaleTimeString());
+        renderProfileMeta(entity, "live", `Live via Finnhub — $${data.c}/share`);
+        renderDisplayInterface();
+        return;
+      }
+      throw new Error("empty quote");
+    } catch (e) {
+      setIndicator("priceIndicator", "priceLabel", "error", "Price feed — Finnhub call failed, using fallback");
+    }
+  } else {
+    setIndicator("priceIndicator", "priceLabel", "stale", "Price feed — no API key supplied, using fallback");
+  }
+
+  cachedValUsd = entity.fallback;
+  fcUpdate("val", `${entity.name} market cap`, formatBig(entity.fallback, "$"), "Estimate",
+    `Static database fallback, as of ${entity.fallbackAsOf}`, new Date().toLocaleTimeString());
+  renderProfileMeta(entity, "estimate", `Static fallback (${entity.fallbackAsOf}) — add a Finnhub key below for a live quote`);
+  renderDisplayInterface();
+}
+
+function renderProfileMeta(entity, status, statusText) {
+  document.getElementById("cName").innerText = entity.name;
+  const sourceRow = document.getElementById("sourceRow");
+  sourceRow.innerHTML = `<span class="source-pill ${status === 'live' ? 'live' : 'estimate'}">${status === 'live' ? '● Live' : '● Estimate'} — ${statusText}</span>`;
+  const verifyLinks = document.getElementById("verifyLinks");
+  verifyLinks.innerHTML = entity.verify.map(v => `<a class="verify-btn" href="${v.url}" target="_blank" rel="noopener">${v.label} <span class="arrow">→</span></a>`).join("");
+}
+
+function renderDisplayInterface() {
+  const curr = document.getElementById("currencySelector").value;
+  const sym = {USD:'$', EUR:'€', GBP:'£', JPY:'¥'}[curr];
+  const rate = rates[curr];
+  const val = cachedValUsd * rate;
+
+  document.getElementById("cWorth").innerText = formatBig(val, sym);
+
+  // Treat the total as if accumulated continuously over one year, then slice into every common unit.
+  const year = val;
+  const month = year / 12;
+  const week = year / 52;
+  const day = year / 365;
+  const hourContinuous = day / 24;
+  const hour40 = week / 40; // if the same weekly amount were earned only during a 40-hour work week
+  const minute = hourContinuous / 60;
+  const second = minute / 60;
+  const ms = second / 1000;
+
+  document.getElementById("mTable").innerHTML = `
+    <tr><td>Per Millisecond</td><td>${formatBig(ms, sym, 4)}</td></tr>
+    <tr><td>Per Second</td><td>${formatBig(second, sym, 3)}</td></tr>
+    <tr><td>Per Minute</td><td>${formatBig(minute, sym)}</td></tr>
+    <tr><td>Per Hour (continuous, 24/7)</td><td>${formatBig(hourContinuous, sym)}</td></tr>
+    <tr><td>Per Hour (40-hour work week basis)</td><td>${formatBig(hour40, sym)}</td></tr>
+    <tr><td>Per Day</td><td>${formatBig(day, sym)}</td></tr>
+    <tr><td>Per Week</td><td>${formatBig(week, sym)}</td></tr>
+    <tr><td>Per Month</td><td>${formatBig(month, sym)}</td></tr>
+    <tr><td>Per Year (total value)</td><td>${formatBig(year, sym)}</td></tr>
+  `;
+
+  document.getElementById("pTable").innerHTML = Object.values(Benchmarks).map(b =>
+    `<tr><td>${b.label}</td><td>${(day / (b.costUsd * rate)).toFixed(4)} Units / Day</td></tr>`).join("");
+
+  renderSignatureStats(sym, rate);
+  renderShoppingList(sym, rate);
+}
+
+function findItem(catKey, name) {
+  const cat = ShoppingCategories[catKey];
+  return cat ? cat.items.find(i => i.name === name) : null;
+}
+
+function renderSignatureStats(sym, rate) {
+  const grid = document.getElementById("statGrid");
+  const empty = document.getElementById("statEmpty");
+  const cards = [];
+  SignatureItems.forEach(sig => {
+    const item = findItem(sig.cat, sig.name);
+    if (!item) return;
+    const qty = Math.floor(cachedValUsd / item.price);
+    if (qty >= 1) {
+      cards.push(`<div class="stat-card"><div class="stat-num">${qty.toLocaleString()}</div><div class="stat-label">${sig.label}</div></div>`);
+    }
+  });
+  grid.innerHTML = cards.join("");
+  grid.style.display = cards.length ? "grid" : "none";
+  empty.style.display = cards.length ? "none" : "block";
+}
+
+let openCategoryKeys = new Set();
+
+function renderShoppingList(sym, rate) {
+  const chipRow = document.getElementById("catChipRow");
+  const body = document.getElementById("catBody");
+
+  const chips = [];
+  const sections = [];
+
+  Object.entries(ShoppingCategories).forEach(([key, cat]) => {
+    const affordable = cat.items
+      .filter(i => Math.floor(cachedValUsd / i.price) >= 1)
+      .sort((a, b) => b.price - a.price);
+
+    chips.push(`<button type="button" class="cat-chip ${openCategoryKeys.has(key) ? 'on' : ''}" data-cat="${key}">${cat.label} <span class="cat-count">(${affordable.length})</span></button>`);
+
+    const isOpen = openCategoryKeys.has(key);
+    const rows = affordable.length
+      ? affordable.map(i => `<tr><td>${i.name}</td><td>${formatBig(i.price * rate, sym)}</td><td>${Math.floor(cachedValUsd / i.price).toLocaleString()}×</td></tr>`).join("")
+      : `<tr><td colspan="3" style="color:var(--paper-dim);">Not affordable yet at this valuation.</td></tr>`;
+
+    sections.push(`
+      <details class="category" data-cat="${key}" ${isOpen ? "open" : ""}>
+        <summary>${cat.label} <span class="cat-count">${affordable.length} of ${cat.items.length} affordable</span></summary>
+        <div class="cat-body">
+          <p class="cat-note">${cat.note}</p>
+          <table class="item-table"><tbody>${rows}</tbody></table>
+        </div>
+      </details>
+    `);
+  });
+
+  chipRow.innerHTML = chips.join("");
+  body.innerHTML = sections.join("");
+
+  chipRow.querySelectorAll(".cat-chip").forEach(btn => {
+    btn.onclick = () => {
+      const key = btn.dataset.cat;
+      const detailsEl = body.querySelector(`details[data-cat="${key}"]`);
+      const willOpen = !detailsEl.open;
+      detailsEl.open = willOpen;
+      if (willOpen) { openCategoryKeys.add(key); btn.classList.add("on"); }
+      else { openCategoryKeys.delete(key); btn.classList.remove("on"); }
+      detailsEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+  });
+
+  body.querySelectorAll("details.category").forEach(d => {
+    d.addEventListener("toggle", () => {
+      const key = d.dataset.cat;
+      if (d.open) openCategoryKeys.add(key); else openCategoryKeys.delete(key);
+      const chip = chipRow.querySelector(`.cat-chip[data-cat="${key}"]`);
+      if (chip) chip.classList.toggle("on", d.open);
+    });
+  });
+}
+
+function odoLoop() {
+  const curr = document.getElementById("currencySelector").value;
+  const sym = {USD:'$', EUR:'€', GBP:'£', JPY:'¥'}[curr];
+  const dailyRate = (cachedValUsd * rates[curr]) / 365;
+  const accumulated = (Date.now() - odoStart) * (dailyRate / 86400000);
+  document.getElementById("odoNum").innerText = formatBig(accumulated, sym, 3);
+  requestAnimationFrame(odoLoop);
+}
+
+async function loadEntity() {
+  const id = document.getElementById("entitySelector").value;
+  const entity = Registry[id];
+  odoStart = Date.now();
+  document.getElementById("avatarWrap").innerHTML = `<span class="initials">${entity.name[0]}</span>`;
+  await Promise.allSettled([fetchBio(entity), fetchValuation(entity)]);
+}
+
+document.getElementById("entitySelector").onchange = loadEntity;
+document.getElementById("currencySelector").onchange = renderDisplayInterface;
+document.getElementById("finnhubKey").addEventListener("change", loadEntity);
+
+window.onload = () => {
+  fetchFxRates();
+  loadEntity();
+  setInterval(fetchFxRates, 5 * 60 * 1000);
+  setInterval(loadEntity, 30 * 1000);
+  requestAnimationFrame(odoLoop);
+};
+</script>
+</body>
+</html>
